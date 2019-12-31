@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+	<style>
+		.container {
+			width: 100%;
+		}
+
+		.panel {
+			float: left;
+			width: 45%;
+		}
+
+		div#errorpanel {
+			width: 100%;
+		}
+	</style>
+</head>
+
+<body>
+	<div class="container">
+		<div class="panel">
+			<canvas id="srcC"></canvas>
+			<br>
+			<input type="file" id="srcI" disabled />
+			<br>
+			<canvas id="tmpC"></canvas>
+			<br>
+			<input type="file" id="tmpI" disabled />
+		</div>
+		<div class="panel">
+			<canvas id="resC"></canvas>
+			<br>
+			<button id="go" disabled>go</button>
+		</div>
+	</div>
+	<div class="container">
+		<div id="errorpanel">
+		</div>
+	</div>
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
+	<script src="browser.min.js" type="text/javascript" charset="utf-8"></script>
+	<script src="Util.min.js" type="text/javascript" charset="utf-8"></script>
+	<script src="opencv.js"></script>
+	<script>
+		
+		$(() => {
+			if (cv.getBuildInformation) {
+				console.log("cv ready...");
+				show(cv);
+			} else {
+				cv['onRuntimeInitialized'] = () => {
+					console.log("cv ready...");
+					show(cv);
+				}
+			}
+			let util = new Utils('errorpanel');
+			util.addFileInputHandler('srcI', 'srcC');
+			util.addFileInputHandler('tmpI', 'tmpC');
+			$('#go').click(() => {
+				let src = cv.imread('srcC');
+				let templ = cv.imread('tmpC');
+				let dst = new cv.Mat();
+				let mask = new cv.Mat();
+				//cv.matchTemplate(src, templ, dst, cv.TM_CCOEFF, mask);
+				cv.matchTemplate(src, templ, dst, cv.TM_CCOEFF_NORMED, mask);
+				//let result = minMaxLocs(dst);
+				let result = num(dst).where(v => v > 0.8);
+				let color = new cv.Scalar(255, 0, 0, 255);
+				//result.max_loc.forEach(p => {
+				result.forEach(p => {
+					let br = new cv.Point(p.x + templ.cols, p.y + templ.rows);
+					cv.rectangle(src, p, br, color, 2, cv.LINE_8, 0);
+				});
+				cv.imshow('resC', src);
+				src.delete();
+				dst.delete();
+				mask.delete();
+				templ.delete();
+			});
+		});
+
+		function num(mat) {
+			return {
+				where: cb => {
+					let loc = [];
+					for (let y = 0; y < mat.rows; y++) {
+						for (let x = 0; x < mat.cols; x++) {
+							if (cb(mat.floatAt(y, x))) loc.push(new cv.Point(x, y));
+						}
+					}
+					return loc;
+				}
+			};
+		}
+
+		function minMaxLocs(mat) {
+			let max_loc = [];
+			let min_loc = [];
+			let max = Number.MIN_VALUE;
+			let min = Number.MAX_VALUE;
+			for (let y = 0; y < mat.rows; y++) {
+				for (let x = 0; x < mat.cols; x++) {
+					let _t = mat.floatAt(y, x);
+					if (_t > max) {
+						max = _t;
+						max_loc = [];
+					}
+					if (_t < min) {
+						min = _t;
+						min_loc = [];
+					}
+					if (Math.abs(max - _t) === 0) {
+						max_loc.push(new cv.Point(x, y));
+					}
+					if (Math.abs(min - _t) === 0) {
+						min_loc.push(new cv.Point(x, y));
+					}
+				}
+			}
+			return {
+				min: min,
+				min_loc: min_loc,
+				max: max,
+				max_loc: max_loc
+			};
+		}
+
+		function show() {
+			$('#srcI').removeAttr('disabled');
+			$('#tmpI').removeAttr('disabled');
+			$('#go').removeAttr('disabled');
+		}
+	</script>
+</body>
+
+</html>
