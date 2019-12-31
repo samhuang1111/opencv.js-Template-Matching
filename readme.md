@@ -76,4 +76,5 @@ for (var i = 0; i < dst.rows; i++) {
 cv.imshow('canvasOutput', src);
 ```
 
-![圖片效果](https://d1dwq032kyr03c.cloudfront.net/upload/images/20191231/20113281EADPMQXPFp.png)
+## 效果
+![](https://d1dwq032kyr03c.cloudfront.net/upload/images/20191231/20113281EADPMQXPFp.png)
