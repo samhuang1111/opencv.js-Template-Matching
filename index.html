@@ -1,138 +1,165 @@
-<!doctype html>
-<html lang="en">
+<!DOCTYPE html>
+<html>
 
-<head>
-	<style>
-		.container {
-			width: 100%;
-		}
+	<head>
+		<meta charset="utf-8">
+		<title>Hello OpenCV.js</title>
+		<script src="https://cdn.jsdelivr.net/gh/nicolaspanel/numjs@0.15.1/dist/numjs.min.js"></script>
 
-		.panel {
-			float: left;
-			width: 45%;
-		}
+		<style>
+			.inputoutput {
+            float: left;
+        }
+    </style>
+	</head>
 
-		div#errorpanel {
-			width: 100%;
-		}
-	</style>
-</head>
+	<body>
 
-<body>
-	<div class="container">
-		<div class="panel">
-			<canvas id="srcC"></canvas>
+		<div>
+
+			<div class="inputoutput" style="width: 100vw;">
+
+				<p>input</p>
+				<img id="imageSrc" alt="No Image" />
+				<div class="caption">imageSrc <input type="file" id="fileInput" name="file" /></div>
+
+			</div>
+
+
+			<div class="inputoutput" style="width: 100vw;">
+
+				<p>template</p>
+				<img id="templateSrc" alt="No templateImage" />
+				<div class="caption">templateSrc<input type="file" id="fileInput2" name="file" /></div>
+
+			</div>
+
 			<br>
-			<input type="file" id="srcI" disabled />
-			<br>
-			<canvas id="tmpC"></canvas>
-			<br>
-			<input type="file" id="tmpI" disabled />
+
+			<div class="inputoutput">
+				<p>output</p>
+				<canvas id="canvasOutput"></canvas>
+			</div>
+
 		</div>
-		<div class="panel">
-			<canvas id="resC"></canvas>
-			<br>
-			<button id="go" disabled>go</button>
-		</div>
-	</div>
-	<div class="container">
-		<div id="errorpanel">
-		</div>
-	</div>
-	<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
-	<script src="browser.min.js" type="text/javascript" charset="utf-8"></script>
-	<script src="Util.min.js" type="text/javascript" charset="utf-8"></script>
-	<script src="opencv.js"></script>
-	<script>
-		
-		$(() => {
-			if (cv.getBuildInformation) {
-				console.log("cv ready...");
-				show(cv);
-			} else {
-				cv['onRuntimeInitialized'] = () => {
-					console.log("cv ready...");
-					show(cv);
-				}
+
+
+		<script type="text/javascript">
+			var imgSrcElement = document.getElementById('imageSrc')
+			var templateSrcElement = document.getElementById('templateSrc')
+
+			var imginput = document.getElementById('fileInput')
+			var imginput2 = document.getElementById('fileInput2')
+
+			imginput2.addEventListener('change', (e) => {
+				templateSrcElement.src = URL.createObjectURL(e.target.files[0])
+			})
+
+			imginput.addEventListener('change', (e) => {
+				imgSrcElement.src = URL.createObjectURL(e.target.files[0])
+			})
+
+			imgSrcElement.onload = function() {
+				//onematch();
+
+				let match = document.getElementById('templateSrc');
+
+				matchx(match);
 			}
-			let util = new Utils('errorpanel');
-			util.addFileInputHandler('srcI', 'srcC');
-			util.addFileInputHandler('tmpI', 'tmpC');
-			$('#go').click(() => {
-				let src = cv.imread('srcC');
-				let templ = cv.imread('tmpC');
+
+
+			function openCVonload() {
+				document.getElementById('status').innerHTML = 'opencv is ready'
+			}
+
+
+			function matchx(templateSrcElement) {
+
+				let src = cv.imread(imgSrcElement);
+				let templ = cv.imread(templateSrcElement);
 				let dst = new cv.Mat();
 				let mask = new cv.Mat();
-				//cv.matchTemplate(src, templ, dst, cv.TM_CCOEFF, mask);
-				cv.matchTemplate(src, templ, dst, cv.TM_CCOEFF_NORMED, mask);
-				//let result = minMaxLocs(dst);
-				let result = num(dst).where(v => v > 0.8);
+				
+				cv.matchTemplate(src, templ, dst, cv.TM_CCORR_NORMED, mask);
+				
 				let color = new cv.Scalar(255, 0, 0, 255);
-				//result.max_loc.forEach(p => {
-				result.forEach(p => {
-					let br = new cv.Point(p.x + templ.cols, p.y + templ.rows);
-					cv.rectangle(src, p, br, color, 2, cv.LINE_8, 0);
-				});
-				cv.imshow('resC', src);
+				
+				var newDst = [];
+				var start = 0;
+				var end = dst.cols;
+				
+				for (var i = 0; i < dst.rows; i++) {
+
+					newDst[i] = [];
+					for (var k = 0; k < dst.cols; k++) {
+						
+						newDst[i][k] = dst.data32F[start];
+						
+						if (newDst[i][k] > 0.99 ) {
+							
+							let maxPoint = {
+								"x": k,
+								"y": i
+							}
+							let point = new cv.Point(k + templ.cols, i + templ.rows);
+							cv.rectangle(src, maxPoint, point, color, 1, cv.LINE_8, 0);
+						}
+						start++;
+					}
+					start = end;
+					end = end + dst.cols;
+				}
+				cv.imshow('canvasOutput', src);
+				
+			}
+			
+
+			function drawAll() {
+
+				let color = new cv.Scalar(255, 0, 0, 255);
+				let src = cv.imread(imgSrcElement);
+				let templ = cv.imread(templateSrcElement);
+
+				for (let i = 0; i < position.length; i++) {
+
+					let point = new cv.Point(position[i].x + templ.cols, position[i].y + templ.rows);
+					cv.rectangle(src, position[i], point, color, 2, cv.LINE_8, 0);
+				}
+
+				cv.imshow('canvasOutput', src);
+				src.delete();
+
+
+			}
+
+
+			function onematch() {
+
+				let src = cv.imread(imgSrcElement);
+				let templ = cv.imread(templateSrcElement);
+				let dst = new cv.Mat();
+				let mask = new cv.Mat();
+
+				cv.matchTemplate(src, templ, dst, cv.TM_CCORR_NORMED, mask);
+				let result = cv.minMaxLoc(dst, mask);
+
+				let maxPoint = result.maxLoc;
+				let color = new cv.Scalar(255, 0, 0, 255);
+
+				let point = new cv.Point(maxPoint.x + templ.cols, maxPoint.y + templ.rows);
+				cv.rectangle(src, maxPoint, point, color, 2, cv.LINE_8, 0);
+
+				cv.imshow('canvasOutput', src);
+
 				src.delete();
 				dst.delete();
 				mask.delete();
-				templ.delete();
-			});
-		});
 
-		function num(mat) {
-			return {
-				where: cb => {
-					let loc = [];
-					for (let y = 0; y < mat.rows; y++) {
-						for (let x = 0; x < mat.cols; x++) {
-							if (cb(mat.floatAt(y, x))) loc.push(new cv.Point(x, y));
-						}
-					}
-					return loc;
-				}
-			};
-		}
-
-		function minMaxLocs(mat) {
-			let max_loc = [];
-			let min_loc = [];
-			let max = Number.MIN_VALUE;
-			let min = Number.MAX_VALUE;
-			for (let y = 0; y < mat.rows; y++) {
-				for (let x = 0; x < mat.cols; x++) {
-					let _t = mat.floatAt(y, x);
-					if (_t > max) {
-						max = _t;
-						max_loc = [];
-					}
-					if (_t < min) {
-						min = _t;
-						min_loc = [];
-					}
-					if (Math.abs(max - _t) === 0) {
-						max_loc.push(new cv.Point(x, y));
-					}
-					if (Math.abs(min - _t) === 0) {
-						min_loc.push(new cv.Point(x, y));
-					}
-				}
 			}
-			return {
-				min: min,
-				min_loc: min_loc,
-				max: max,
-				max_loc: max_loc
-			};
-		}
+		</script>
 
-		function show() {
-			$('#srcI').removeAttr('disabled');
-			$('#tmpI').removeAttr('disabled');
-			$('#go').removeAttr('disabled');
-		}
-	</script>
-</body>
+		<!-- 异步加载，不对程序进行阻塞 -->
+		<script async src="opencv.js" type="text/javascript"></script>
+	</body>
 
 </html>
